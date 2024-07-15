@@ -18,7 +18,7 @@ h = lgpio.gpiochip_open(CHIP_NUM)  # Open the correct GPIO chip\
 lgpio.gpio_claim_output(h, LED_PIN)  # Set the GPIO pin to output mode\
 \
 # Hard-code the API key directly\
-api_key = "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"\
+api_key = "YOUR KEY"\
 client = OpenAI(api_key=api_key)\
 \
 def classify_response(response):\
