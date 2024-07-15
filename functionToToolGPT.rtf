@@ -1,0 +1,60 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red174\green176\blue183;\red23\green23\blue26;\red195\green123\blue90;
+\red103\green107\blue114;\red89\green158\blue96;\red152\green54\blue29;\red71\green149\blue242;\red38\green157\blue169;
+\red117\green114\blue185;}
+{\*\expandedcolortbl;;\csgenericrgb\c68235\c69020\c71765;\csgenericrgb\c9020\c9020\c10196;\csgenericrgb\c76471\c48235\c35294;
+\csgenericrgb\c40392\c41961\c44706;\csgenericrgb\c34902\c61961\c37647;\csgenericrgb\c59608\c21176\c11373;\csgenericrgb\c27843\c58431\c94902;\csgenericrgb\c14902\c61569\c66275;
+\csgenericrgb\c45882\c44706\c72549;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 \
+
+\f1 \cf4 from \cf2 openai \cf4 import \cf2 OpenAI\
+\
+\cf5 # Hard-code the API key directly\
+\cf2 api_key = \cf6 "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"\
+\cf2 client = OpenAI(\cf7 api_key\cf2 =api_key)\
+\
+\cf4 def \cf8 classify_response\cf2 (response):\
+    prompt = \cf6 f"The following is a response from a fire monitoring system. Does it indicate the presence of fire at that point in time, flames, burning, smoke, sparks, conflagration or ignition ? Respond with 'yes' or 'no' only:\cf4 \\n\\n\\"\{\cf2 response\cf4 \}\\"\cf6 "\cf5 # Craft prompt to detect fire\
+    \cf2 PROMPT_MESSAGES = [\
+        \{\cf6 "role"\cf2 : \cf6 "system"\cf2 , \cf6 "content"\cf2 : \cf6 "You are a fire prevention detection classifier only 'yes' or 'no' as responses nothing else. always lower capital letter no matter what"\cf2 \},\
+        \{\cf6 "role"\cf2 : \cf6 "user"\cf2 , \cf6 "content"\cf2 : prompt\}\
+    ]\
+    params = \{\
+        \cf6 "model"\cf2 : \cf6 "gpt-4o"\cf2 ,\
+        \cf6 "messages"\cf2 : PROMPT_MESSAGES,\
+        \cf6 "max_tokens"\cf2 : \cf9 50\cf2 ,\
+    \}\
+\
+    \cf5 # Send request to GPT\
+    \cf2 result = client.chat.completions.create(**params)\
+    description = result.choices[\cf9 0\cf2 ].message.content\
+    \cf10 print\cf2 (\cf6 f"Description: \cf4 \{\cf2 description\cf4 \}\cf6 "\cf2 )\
+    \cf4 return \cf2 description == \cf6 "yes"\
+\
+\cf5 # Function to activate action if fire is detected\
+\cf4 def \cf8 activate_action_if_fire\cf2 (response):\
+    \cf4 if \cf2 classify_response(response):\
+        \cf10 print\cf2 (\cf6 "Action Activated: Fire detected!"\cf2 )\
+    \cf4 else\cf2 :\
+        \cf10 print\cf2 (\cf6 "No fire detected. No action taken."\cf2 )\
+\
+\cf5 # Example usage\
+\cf2 responses = [\
+    \cf6 "There looks like there is vapor, not fire or smoke."\cf2 ,\
+    \cf6 "There is a significant amount of smoke and flames visible."\cf2 ,\
+    \cf6 "I see sparks but no fire yet."\cf2 ,\
+    \cf6 "There was fire but now it stopped."\cf2 ,\
+    \cf6 "The area is clear, no signs of fire or smoke."\cf2 ,\
+    \cf6 "There is a blaze, and it's spreading quickly!"\
+\cf2 ]\
+\
+\cf4 for \cf2 response \cf4 in \cf2 responses:\
+\
+    \cf10 print\cf2 (\cf6 f"Response: \cf4 \{\cf2 response\cf4 \}\cf6 "\cf2 )\
+    activate_action_if_fire(response)\
+    \cf10 print\cf2 (\cf6 "\cf4 \\n\cf6 "\cf2 )\
+}

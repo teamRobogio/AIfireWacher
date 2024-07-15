@@ -1,0 +1,274 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 #include <Arduino.h>\
+\
+// Define the tree map with servo angles and required magnet detection\
+struct Node \{\
+  int nextNode;\
+  int angle;\
+  char magnet;  // 'N' for North, 'S' for South, ' ' for no magnet required\
+\};\
+\
+// Tree map where only valid transitions are specified\
+const Node treeMap[8][4] = \{\
+  \{\{2, 0, 'N'\}, \{7, 0, 'S'\}, \{6, 90, 'N'\}, \{8, 90, 'S'\}\},  // 1 -> 2, 7, 6, 8\
+  \{\{4, 0, 'N'\}, \{1, 0, 'S'\}, \{5, 90, 'N'\}, \{3, 90, 'S'\}\},  // 2 -> 4, 1, 5, 3\
+  \{\{2, 90, 'S'\}\},  // 3 -> 2\
+  \{\{2, 0, 'N'\}\},   // 4 -> 2\
+  \{\{2, 90, 'N'\}\},  // 5 -> 2\
+  \{\{1, 90, 'N'\}\},  // 6 -> 1\
+  \{\{1, 0, 'S'\}\},   // 7 -> 1\
+  \{\{1, 90, 'S'\}\}   // 8 -> 1\
+\};\
+\
+// Function prototypes\
+void printPath(int start, int target);\
+void printIntersectionMovement(int current, int next);\
+void moveUntilMagnet(char requiredMagnet);\
+void moveMotorForward();\
+void moveMotorBackward();\
+void stopMotor();\
+void adjustServoAngle(int intersection, int requiredAngle);\
+void checkAndAdjustServoAngles(int current, int next);\
+\
+int readSerialInt();\
+char readSerialChar();\
+\
+void setup() \{\
+  Serial.begin(9600);\
+  delay(2000);  // Allow time to open the serial monitor\
+  Serial.println("Enter starting point (1-8): ");\
+\}\
+\
+void loop() \{\
+  static int start = -1;\
+  static int end = -1;\
+\
+  if (start == -1) \{\
+    start = readSerialInt();\
+    if (start >= 1 && start <= 8) \{\
+      Serial.print("Starting point set to: ");\
+      Serial.println(start);\
+      Serial.println("Enter ending point (1-8): ");\
+    \} else \{\
+      start = -1;\
+      Serial.println("Invalid starting point. Enter a number between 1 and 8.");\
+    \}\
+  \} else if (end == -1) \{\
+    end = readSerialInt();\
+    if (end >= 1 && end <= 8) \{\
+      Serial.print("Ending point set to: ");\
+      Serial.println(end);\
+      printPath(start, end);\
+    \} else \{\
+      end = -1;\
+      Serial.println("Invalid ending point. Enter a number between 1 and 8.");\
+    \}\
+  \}\
+\}\
+\
+int readSerialInt() \{\
+  int number = -1;\
+  while (number < 1 || number > 8) \{\
+    while (Serial.available() == 0) \{\
+      // Wait for user input\
+    \}\
+    number = Serial.parseInt();\
+  \}\
+  return number;\
+\}\
+\
+char readSerialChar() \{\
+  while (true) \{\
+    if (Serial.available() > 0) \{\
+      char c = Serial.read();\
+      if (c == '\\n') \{\
+        continue;\
+      \}\
+      return c;\
+    \}\
+  \}\
+\}\
+\
+int findPath(int start, int target, int *path) \{\
+  bool visited[8] = \{false\};\
+  int queue[8];\
+  int parent[8];\
+  int front = 0;\
+  int rear = 0;\
+\
+  queue[rear++] = start;\
+  visited[start - 1] = true;\
+  parent[start - 1] = -1;\
+\
+  while (front < rear) \{\
+    int node = queue[front++];\
+\
+    if (node == target) \{\
+      // Reconstruct path\
+      int pathLength = 0;\
+      while (node != -1) \{\
+        path[pathLength++] = node;\
+        node = parent[node - 1];\
+      \}\
+      // Reverse path\
+      for (int i = 0; i < pathLength / 2; i++) \{\
+        int temp = path[i];\
+        path[i] = path[pathLength - i - 1];\
+        path[pathLength - i - 1] = temp;\
+      \}\
+      return pathLength;\
+    \}\
+\
+    for (int i = 0; i < 4; i++) \{\
+      int neighbor = treeMap[node - 1][i].nextNode;\
+      if (neighbor != -1 && !visited[neighbor - 1]) \{\
+        queue[rear++] = neighbor;\
+        visited[neighbor - 1] = true;\
+        parent[neighbor - 1] = node;\
+      \}\
+    \}\
+  \}\
+\
+  return 0;  // No path found\
+\}\
+\
+void printPath(int start, int target) \{\
+  int path[8];\
+  int pathLength = findPath(start, target, path);\
+\
+  if (pathLength == 0) \{\
+    Serial.println("No path found.");\
+    return;\
+  \}\
+\
+  Serial.print("Path from ");\
+  Serial.print(start);\
+  Serial.print(" to ");\
+  Serial.print(target);\
+  Serial.print(": ");\
+  for (int i = 0; i < pathLength; i++) \{\
+    Serial.print(path[i]);\
+    if (i < pathLength - 1) Serial.print(" -> ");\
+  \}\
+  Serial.println();\
+\
+  // Print movement and magnet detection information\
+  for (int i = 0; i < pathLength - 1; i++) \{\
+    int current = path[i];\
+    int next = path[i + 1];\
+    printIntersectionMovement(current, next);\
+  \}\
+\}\
+\
+void printIntersectionMovement(int current, int next) \{\
+  Serial.print("Intersection ");\
+  Serial.print(current);\
+  Serial.print(" to ");\
+  Serial.print(next);\
+  Serial.print(": ");\
+\
+  bool movementPrinted = false;\
+\
+  for (int i = 0; i < 4; i++) \{\
+    if (treeMap[current - 1][i].nextNode == next) \{\
+      int angle = treeMap[current - 1][i].angle;\
+      char magnet = treeMap[current - 1][i].magnet;\
+      if (current == 1 || current == 2 || next == 1 || next == 2) \{\
+        checkAndAdjustServoAngles(current, next); // Check and adjust servo angles for intersections 1 and 2\
+      \}\
+      moveUntilMagnet(magnet);\
+      movementPrinted = true;\
+      break;\
+    \}\
+  \}\
+\
+  if (!movementPrinted) \{\
+    Serial.println("End stop.");\
+    stopMotor();\
+  \}\
+\}\
+\
+void checkAndAdjustServoAngles(int current, int next) \{\
+  if (current == 1 || current == 2) \{\
+    for (int i = 0; i < 4; i++) \{\
+      if (treeMap[current - 1][i].nextNode == next) \{\
+        int angle = treeMap[current - 1][i].angle;\
+        adjustServoAngle(current, angle);\
+      \}\
+    \}\
+  \}\
+\
+  if (next == 1 || next == 2) \{\
+    for (int i = 0; i < 4; i++) \{\
+      if (treeMap[next - 1][i].nextNode == current) \{\
+        int angle = treeMap[next - 1][i].angle;\
+        adjustServoAngle(next, angle);\
+      \}\
+    \}\
+  \}\
+\}\
+\
+void adjustServoAngle(int intersection, int requiredAngle) \{\
+  Serial.print("Adjusting servo at intersection ");\
+  Serial.print(intersection);\
+  Serial.print(" to ");\
+  Serial.print(requiredAngle);\
+  Serial.println(" degrees.");\
+  // Code to adjust the servo motor to the required angle would go here\
+  // Simulate servo adjustment delay\
+  delay(1000);\
+\}\
+\
+void moveUntilMagnet(char requiredMagnet) \{\
+  Serial.print("Move, detect ");\
+  Serial.println(requiredMagnet == 'N' ? "North magnet" : "South magnet");\
+  char detectedMagnet;\
+  bool movingForward = true;\
+\
+  while (true) \{\
+    Serial.println("Enter detected magnet (N/S): ");\
+    detectedMagnet = readSerialChar();\
+    detectedMagnet = toupper(detectedMagnet); // Convert to uppercase for consistency\
+\
+    if (detectedMagnet == 'N' || detectedMagnet == 'S') \{\
+      if (detectedMagnet == requiredMagnet) \{\
+        Serial.println("Correct magnet detected. Continuing...");\
+        stopMotor();\
+        break;\
+      \} else \{\
+        if (movingForward) \{\
+          Serial.println("Wrong magnet detected. Reversing...");\
+          moveMotorBackward();\
+        \} else \{\
+          Serial.println("Wrong magnet detected. Moving forward...");\
+          moveMotorForward();\
+        \}\
+        movingForward = !movingForward;\
+      \}\
+    \} else \{\
+      Serial.println("Invalid input. Enter 'N' or 'S'.");\
+    \}\
+  \}\
+\}\
+\
+void moveMotorForward() \{\
+  Serial.println("Motor direction: FORWARD");\
+  // Simulate motor moving forward\
+\}\
+\
+void moveMotorBackward() \{\
+  Serial.println("Motor direction: REVERSE");\
+  // Simulate motor moving backward\
+\}\
+\
+void stopMotor() \{\
+  Serial.println("Motor stopped.");\
+  // Simulate stopping the motor\
+\}\
+}

@@ -1,0 +1,144 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red195\green123\blue90;\red23\green23\blue26;\red174\green176\blue183;
+\red103\green107\blue114;\red89\green158\blue96;\red152\green54\blue29;\red71\green149\blue242;\red38\green157\blue169;
+\red117\green114\blue185;}
+{\*\expandedcolortbl;;\csgenericrgb\c76471\c48235\c35294;\csgenericrgb\c9020\c9020\c10196;\csgenericrgb\c68235\c69020\c71765;
+\csgenericrgb\c40392\c41961\c44706;\csgenericrgb\c34902\c61961\c37647;\csgenericrgb\c59608\c21176\c11373;\csgenericrgb\c27843\c58431\c94902;\csgenericrgb\c14902\c61569\c66275;
+\csgenericrgb\c45882\c44706\c72549;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 import \cf4 cv2\
+\cf2 import \cf4 base64\
+\cf2 import \cf4 time\
+\cf2 import \cf4 os\
+\cf2 import \cf4 smtplib\
+\cf2 from \cf4 email.mime.multipart \cf2 import \cf4 MIMEMultipart\
+\cf2 from \cf4 email.mime.text \cf2 import \cf4 MIMEText\
+\cf2 from \cf4 email.mime.base \cf2 import \cf4 MIMEBase\
+\cf2 from \cf4 email \cf2 import \cf4 encoders\
+\cf2 from \cf4 openai \cf2 import \cf4 OpenAI\
+\
+\cf5 # Hard-code the API key directly\
+\cf4 api_key = \cf6 "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"\
+\cf4 client = OpenAI(\cf7 api_key\cf4 =api_key)\
+\
+\cf5 # Email configuration\
+\cf4 EMAIL_ADDRESS = \cf6 "giorgiocorrado@gmail.com"\
+\cf4 EMAIL_PASSWORD = \cf6 "tqja kiap oepl enyi"\
+\cf4 EMAIL_RECIPIENT = \cf6 "giorgiocorrado@gmail.com"\
+\
+\cf2 def \cf8 classify_response\cf4 (response):\
+    prompt = \cf6 f"The following is a response from a fire monitoring system. Does it indicate the presence of fire at that point in time, flames, burning, smoke, sparks, conflagration or ignition? Respond with 'yes' or 'no' only:\cf2 \\n\\n\\"\{\cf4 response\cf2 \}\\"\cf6 " \cf5 # Craft prompt to detect fire\
+    \cf4 PROMPT_MESSAGES = [\
+        \{\cf6 "role"\cf4 : \cf6 "system"\cf4 , \cf6 "content"\cf4 : \cf6 "You are a fire detection classifier only 'yes' or 'no' as responses nothing else. always lower capital letter no matter what"\cf4 \},\
+        \{\cf6 "role"\cf4 : \cf6 "user"\cf4 , \cf6 "content"\cf4 : prompt\}\
+    ]\
+    params = \{\
+        \cf6 "model"\cf4 : \cf6 "gpt-4o"\cf4 ,\
+        \cf6 "messages"\cf4 : PROMPT_MESSAGES,\
+        \cf6 "max_tokens"\cf4 : \cf9 50\cf4 ,\
+    \}\
+\
+    \cf5 # Send request to GPT\
+    \cf4 result = client.chat.completions.create(**params)\
+    description = result.choices[\cf9 0\cf4 ].message.content.strip().lower()\
+    \cf10 print\cf4 (\cf6 f"Description: \cf2 \{\cf4 description\cf2 \}\cf6 "\cf4 )\
+    \cf2 return \cf4 description == \cf6 "yes"\
+\
+\cf2 def \cf8 send_email\cf4 (subject, body, attachment_path):\
+    msg = MIMEMultipart()\
+    msg[\cf6 'From'\cf4 ] = EMAIL_ADDRESS\
+    msg[\cf6 'To'\cf4 ] = EMAIL_RECIPIENT\
+    msg[\cf6 'Subject'\cf4 ] = subject\
+\
+    msg.attach(MIMEText(body, \cf6 'plain'\cf4 ))\
+\
+    attachment = \cf10 open\cf4 (attachment_path, \cf6 "rb"\cf4 )\
+    part = MIMEBase(\cf6 'application'\cf4 , \cf6 'octet-stream'\cf4 )\
+    part.set_payload(attachment.read())\
+    encoders.encode_base64(part)\
+    part.add_header(\cf6 'Content-Disposition'\cf4 , \cf6 f"attachment; filename= \cf2 \{\cf4 os.path.basename(attachment_path)\cf2 \}\cf6 "\cf4 )\
+\
+    msg.attach(part)\
+    attachment.close()\
+\
+    \cf2 with \cf4 smtplib.SMTP(\cf6 'smtp.gmail.com'\cf4 , \cf9 587\cf4 ) \cf2 as \cf4 server:\
+        server.starttls()\
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)\
+        text = msg.as_string()\
+        server.sendmail(EMAIL_ADDRESS, EMAIL_RECIPIENT, text)\
+\
+\cf2 def \cf8 activate_action_if_fire\cf4 (response, frame, description):\
+    \cf2 if \cf4 classify_response(response):\
+        \cf10 print\cf4 (\cf6 "Action Activated: Fire detected!"\cf4 )\
+\
+        \cf5 # Save the frame\
+        \cf4 timestamp = \cf10 int\cf4 (time.time())\
+        frame_filename = \cf6 f"frame_\cf2 \{\cf4 timestamp\cf2 \}\cf6 .jpg"\
+        \cf4 cv2.imwrite(frame_filename, frame)\
+\
+        \cf5 # Save the description and alert\
+        \cf4 alert_info = \cf6 f"Description: \cf2 \{\cf4 description\cf2 \}\\n\cf6 Alert: Fire detected!"\
+\
+        \cf5 # Send an email with the info\
+        \cf4 send_email(\cf6 "Fire Alert"\cf4 , alert_info, frame_filename)\
+    \cf2 else\cf4 :\
+        \cf10 print\cf4 (\cf6 "No fire detected. No action taken."\cf4 )\
+\
+\cf5 # Open the default camera\
+\cf4 video = cv2.VideoCapture(\cf9 0\cf4 )\
+\
+\cf2 if not \cf4 video.isOpened():\
+    \cf10 print\cf4 (\cf6 "Error: Could not open video."\cf4 )\
+    \cf10 exit\cf4 ()\
+\
+\cf2 while True\cf4 :\
+    success, frame = video.read()\
+    \cf2 if not \cf4 success:\
+        \cf10 print\cf4 (\cf6 "Error: Could not read frame."\cf4 )\
+        \cf2 break\
+\
+    \cf4 _, buffer = cv2.imencode(\cf6 ".jpg"\cf4 , frame)\
+    base64_frame = base64.b64encode(buffer).decode(\cf6 "utf-8"\cf4 )\
+\
+    \cf5 # Craft prompt to detect fire\
+    \cf4 PROMPT_MESSAGES = [\
+        \{\
+            \cf6 "role"\cf4 : \cf6 "user"\cf4 ,\
+            \cf6 "content"\cf4 : [\
+                \cf6 "You are a surveillance system. Your job is to prevent fire. Is there any fire, smoke, or other things that can initiate fire, in this frame from a live camera feed? If yes, where is it located? give a description of what you see specifically if there is fire or smoke and tell me where. Limit your answer to 50 words and prioritize fire or smoke if detected."\cf4 ,\
+                \{\cf6 "image"\cf4 : base64_frame, \cf6 "resize"\cf4 : \cf9 768\cf4 \},\
+            ],\
+        \},\
+    ]\
+    params = \{\
+        \cf6 "model"\cf4 : \cf6 "gpt-4o"\cf4 ,\
+        \cf6 "messages"\cf4 : PROMPT_MESSAGES,\
+        \cf6 "max_tokens"\cf4 : \cf9 50\cf4 ,\
+    \}\
+\
+    \cf5 # Send request to GPT\
+    \cf4 result = client.chat.completions.create(**params)\
+    description = result.choices[\cf9 0\cf4 ].message.content\
+    \cf10 print\cf4 (\cf6 f"Description: \cf2 \{\cf4 description\cf2 \}\cf6 "\cf4 )\
+\
+    \cf5 # Use the description to activate the action if needed\
+    \cf4 activate_action_if_fire(description, frame, description)\
+\
+    \cf5 # Display the frame\
+    \cf4 cv2.imshow(\cf6 'Live Feed'\cf4 , frame)\
+\
+    \cf5 # Exit when 'q' key is pressed\
+    \cf2 if \cf4 cv2.waitKey(\cf9 1\cf4 ) & \cf9 0xFF \cf4 == \cf10 ord\cf4 (\cf6 'q'\cf4 ):\
+        \cf2 break\
+\
+    \cf5 # Wait a bit before capturing the next frame\
+    \cf4 time.sleep(\cf9 1\cf4 )\
+\
+\cf5 # Release the video capture object and close windows\
+\cf4 video.release()\
+cv2.destroyAllWindows()\
+\
+}

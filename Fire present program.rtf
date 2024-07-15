@@ -1,0 +1,83 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red195\green123\blue90;\red23\green23\blue26;\red174\green176\blue183;
+\red103\green107\blue114;\red89\green158\blue96;\red152\green54\blue29;\red38\green157\blue169;\red117\green114\blue185;
+}
+{\*\expandedcolortbl;;\csgenericrgb\c76471\c48235\c35294;\csgenericrgb\c9020\c9020\c10196;\csgenericrgb\c68235\c69020\c71765;
+\csgenericrgb\c40392\c41961\c44706;\csgenericrgb\c34902\c61961\c37647;\csgenericrgb\c59608\c21176\c11373;\csgenericrgb\c14902\c61569\c66275;\csgenericrgb\c45882\c44706\c72549;
+}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 import \cf4 cv2\
+\cf2 import \cf4 base64\
+\cf2 import \cf4 time\
+\cf2 import \cf4 requests\
+\cf2 from \cf4 openai \cf2 import \cf4 OpenAI\
+\
+\cf5 # Hard-code the API key directly\
+\cf4 api_key = \cf6 "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"\
+\cf4 client = OpenAI(\cf7 api_key\cf4 =api_key)\
+\
+\cf5 # Open the default camera\
+\cf4 video = cv2.VideoCapture(\cf8 0\cf4 )\
+\
+\cf2 if not \cf4 video.isOpened():\
+    \cf9 print\cf4 (\cf6 "Error: Could not open video."\cf4 )\
+    \cf9 exit\cf4 ()\
+\
+\cf2 while True\cf4 :\
+    success, frame = video.read()\
+    \cf2 if not \cf4 success:\
+        \cf9 print\cf4 (\cf6 "Error: Could not read frame."\cf4 )\
+        \cf2 break\
+\
+    \cf4 _, buffer = cv2.imencode(\cf6 ".jpg"\cf4 , frame)\
+    base64_frame = base64.b64encode(buffer).decode(\cf6 "utf-8"\cf4 )\
+\
+    \cf5 # Craft prompt to detect fire\
+    \cf4 PROMPT_MESSAGES = [\
+        \{\
+            \cf6 "role"\cf4 : \cf6 "user"\cf4 ,\
+            \cf6 "content"\cf4 : [\
+                \cf6 "Is there any fire in this frame from a live camera feed? If yes, where is it located? Only respond with 'Yes, fire present at [location]' or 'No fire present'."\cf4 ,\
+                \{\cf6 "image"\cf4 : base64_frame, \cf6 "resize"\cf4 : \cf8 768\cf4 \},\
+            ],\
+        \},\
+    ]\
+    params = \{\
+        \cf6 "model"\cf4 : \cf6 "gpt-4o"\cf4 ,\
+        \cf6 "messages"\cf4 : PROMPT_MESSAGES,\
+        \cf6 "max_tokens"\cf4 : \cf8 50\cf4 ,\
+    \}\
+\
+    \cf5 # Send request to GPT\
+    \cf4 result = client.chat.completions.create(**params)\
+    description = result.choices[\cf8 0\cf4 ].message.content\
+\
+    \cf5 # Print the fire presence information only\
+    \cf2 if \cf6 "fire" \cf2 in \cf4 description.lower():\
+        \cf2 if \cf6 "no fire" \cf2 in \cf4 description.lower():\
+            \cf9 print\cf4 (\cf6 "No fire present"\cf4 )\
+        \cf2 else\cf4 :\
+            \cf5 # Extract location from the description\
+            \cf4 fire_location = description.split(\cf6 " at "\cf4 )[-\cf8 1\cf4 ]\
+            \cf9 print\cf4 (\cf6 f"Fire present at \cf2 \{\cf4 fire_location.strip()\cf2 \}\cf6 "\cf4 )\
+    \cf2 else\cf4 :\
+        \cf9 print\cf4 (\cf6 "No fire present"\cf4 )\
+\
+    \cf5 # Display the frame\
+    \cf4 cv2.imshow(\cf6 'Live Feed'\cf4 , frame)\
+\
+    \cf5 # Exit when 'q' key is pressed\
+    \cf2 if \cf4 cv2.waitKey(\cf8 1\cf4 ) & \cf8 0xFF \cf4 == \cf9 ord\cf4 (\cf6 'q'\cf4 ):\
+        \cf2 break\
+\
+    \cf5 # Wait a bit before capturing the next frame\
+    \cf4 time.sleep(\cf8 1\cf4 )\
+\
+\cf5 # Release the video capture object and close windows\
+\cf4 video.release()\
+cv2.destroyAllWindows()\
+\
+}

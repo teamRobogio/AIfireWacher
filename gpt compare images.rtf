@@ -1,0 +1,105 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red195\green123\blue90;\red23\green23\blue26;\red174\green176\blue183;
+\red103\green107\blue114;\red89\green158\blue96;\red152\green54\blue29;\red71\green149\blue242;\red117\green114\blue185;
+\red38\green157\blue169;}
+{\*\expandedcolortbl;;\csgenericrgb\c76471\c48235\c35294;\csgenericrgb\c9020\c9020\c10196;\csgenericrgb\c68235\c69020\c71765;
+\csgenericrgb\c40392\c41961\c44706;\csgenericrgb\c34902\c61961\c37647;\csgenericrgb\c59608\c21176\c11373;\csgenericrgb\c27843\c58431\c94902;\csgenericrgb\c45882\c44706\c72549;
+\csgenericrgb\c14902\c61569\c66275;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 from \cf4 IPython.display \cf2 import \cf4 Image, display, Audio, Markdown\
+\cf2 from \cf4 openai \cf2 import \cf4 OpenAI\
+\cf2 import \cf4 base64\
+\cf2 import \cf4 os\
+\cf2 import \cf4 tkinter \cf2 as \cf4 tk\
+\cf2 from \cf4 tkinter \cf2 import \cf4 filedialog, Text\
+\cf2 from \cf4 tkinter.scrolledtext \cf2 import \cf4 ScrolledText\
+\
+\cf5 # Set the API key and model name\
+\cf4 MODEL = \cf6 "gpt-4o"\
+\cf4 api_key = \cf6 "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"\
+\cf4 client = OpenAI(\cf7 api_key\cf4 =api_key)\
+\
+\cf2 def \cf8 encode_image\cf4 (image_path):\
+    \cf2 with \cf9 open\cf4 (image_path, \cf6 "rb"\cf4 ) \cf2 as \cf4 image_file:\
+        \cf2 return \cf4 base64.b64encode(image_file.read()).decode(\cf6 "utf-8"\cf4 )\
+\
+\cf2 def \cf8 upload_image\cf4 (image_label):\
+    file_path = filedialog.askopenfilename()\
+    \cf2 if \cf4 file_path:\
+        encoded_image = encode_image(file_path)\
+        image_label.config(\cf7 text\cf4 =\cf6 f"Image Path: \cf2 \{\cf4 file_path\cf2 \}\cf6 "\cf4 )\
+        image_label.image_path = file_path  \cf5 # Store the file path in the label widget\
+        \cf4 image_label.encoded_image = encoded_image  \cf5 # Store the encoded image in the label widget\
+        \cf2 return \cf4 encoded_image\
+    \cf2 return None\
+\
+def \cf8 upload_image1\cf4 ():\
+    upload_image(image_label1)\
+\
+\cf2 def \cf8 upload_image2\cf4 ():\
+    upload_image(image_label2)\
+\
+\cf2 def \cf8 submit_prompt\cf4 ():\
+    prompt = prompt_entry.get(\cf6 "1.0"\cf4 , tk.END).strip()\
+    base64_image1 = image_label1.encoded_image  \cf5 # Retrieve the encoded image from the label widget\
+    \cf4 base64_image2 = image_label2.encoded_image  \cf5 # Retrieve the encoded image from the label widget\
+    \cf2 if \cf4 base64_image1 \cf2 and \cf4 base64_image2 \cf2 and \cf4 prompt:\
+        response = client.chat.completions.create(\
+            \cf7 model\cf4 =MODEL,\
+            \cf7 messages\cf4 =[\
+                \{\cf6 "role"\cf4 : \cf6 "system"\cf4 , \cf6 "content"\cf4 : \cf6 "You are a helpful assistant."\cf4 \},\
+                \{\cf6 "role"\cf4 : \cf6 "user"\cf4 , \cf6 "content"\cf4 : [\
+                    \{\cf6 "type"\cf4 : \cf6 "text"\cf4 , \cf6 "text"\cf4 : prompt\},\
+                    \{\cf6 "type"\cf4 : \cf6 "image_url"\cf4 , \cf6 "image_url"\cf4 : \{\
+                        \cf6 "url"\cf4 : \cf6 f"data:image/png;base64,\cf2 \{\cf4 base64_image1\cf2 \}\cf6 "\cf4 \}\
+                    \},\
+                    \{\cf6 "type"\cf4 : \cf6 "image_url"\cf4 , \cf6 "image_url"\cf4 : \{\
+                        \cf6 "url"\cf4 : \cf6 f"data:image/png;base64,\cf2 \{\cf4 base64_image2\cf2 \}\cf6 "\cf4 \}\
+                    \}\
+                ]\}\
+            ],\
+            \cf7 temperature\cf4 =\cf10 0.0\cf4 ,\
+        )\
+        result = response.choices[\cf10 0\cf4 ].message.content\
+        result_text.config(\cf7 state\cf4 =tk.NORMAL)\
+        result_text.delete(\cf6 "1.0"\cf4 , tk.END)\
+        result_text.insert(tk.END, result)\
+        result_text.config(\cf7 state\cf4 =tk.DISABLED)\
+\
+\cf5 # GUI setup\
+\cf4 root = tk.Tk()\
+root.title(\cf6 "Image Comparison GUI"\cf4 )\
+\
+frame = tk.Frame(root)\
+frame.pack(\cf7 pady\cf4 =\cf10 10\cf4 )\
+\
+image_label1 = tk.Label(frame, \cf7 text\cf4 =\cf6 "No image 1 selected"\cf4 )\
+image_label1.pack()\
+\
+upload_button1 = tk.Button(frame, \cf7 text\cf4 =\cf6 "Upload Image 1"\cf4 , \cf7 command\cf4 =upload_image1)\
+upload_button1.pack(\cf7 pady\cf4 =\cf10 5\cf4 )\
+\
+image_label2 = tk.Label(frame, \cf7 text\cf4 =\cf6 "No image 2 selected"\cf4 )\
+image_label2.pack()\
+\
+upload_button2 = tk.Button(frame, \cf7 text\cf4 =\cf6 "Upload Image 2"\cf4 , \cf7 command\cf4 =upload_image2)\
+upload_button2.pack(\cf7 pady\cf4 =\cf10 5\cf4 )\
+\
+prompt_label = tk.Label(frame, \cf7 text\cf4 =\cf6 "What do you want to detect in the images?"\cf4 )\
+prompt_label.pack(\cf7 pady\cf4 =\cf10 5\cf4 )\
+\
+prompt_entry = ScrolledText(frame, \cf7 height\cf4 =\cf10 5\cf4 , \cf7 width\cf4 =\cf10 50\cf4 )\
+prompt_entry.pack(\cf7 pady\cf4 =\cf10 5\cf4 )\
+\
+submit_button = tk.Button(frame, \cf7 text\cf4 =\cf6 "Submit"\cf4 , \cf7 command\cf4 =submit_prompt)\
+submit_button.pack(\cf7 pady\cf4 =\cf10 10\cf4 )\
+\
+result_text = ScrolledText(frame, \cf7 height\cf4 =\cf10 10\cf4 , \cf7 width\cf4 =\cf10 50\cf4 , \cf7 state\cf4 =tk.DISABLED)\
+result_text.pack(\cf7 pady\cf4 =\cf10 5\cf4 )\
+\
+root.mainloop()\
+\
+}

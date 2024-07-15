@@ -1,0 +1,189 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 Menlo-Bold;\f2\fnil\fcharset0 Menlo-Regular;
+}
+{\colortbl;\red255\green255\blue255;\red46\green174\blue187;\red0\green0\blue0;\red180\green36\blue25;
+\red47\green180\blue29;}
+{\*\expandedcolortbl;;\cssrgb\c20199\c73241\c78251;\csgray\c0;\cssrgb\c76411\c21697\c12527;
+\cssrgb\c20241\c73898\c14950;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import cv2\
+import base64\
+import time\
+import os\
+import smtplib\
+from email.mime.multipart import MIMEMultipart\
+from email.mime.text import MIMEText\
+from email.mime.base import MIMEBase\
+from email import encoders\
+from openai import OpenAI\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f1\b\fs22 \cf2 \CocoaLigature0 import
+\f2\b0 \cf3  lgpio\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f1\b \cf4 # Setup
+\f2\b0 \cf3 \
+LED_PIN = 18 
+\f1\b \cf4  # GPIO 18 corresponds to physical pin 12
+\f2\b0 \cf3 \
+R_PIN = 17 
+\f1\b \cf4  # GPIO 18 corresponds to physical pin 12
+\f2\b0 \cf3 \
+CHIP_NUM = 4 
+\f1\b \cf4  # gpiochip4 from gpioinfo output
+\f2\b0 \cf3 \
+h = lgpio.gpiochip_open(CHIP_NUM) 
+\f1\b \cf4  # Open the correct GPIO chip
+\f2\b0 \cf3 \
+lgpio.gpio_claim_output(h, LED_PIN) 
+\f1\b \cf4  # Set the GPIO pin to output mode
+\f2\b0 \cf3 \
+lgpio.gpio_claim_output(h, R_PIN) 
+\f1\b \cf4  # Set the GPIO pin to output mode
+\f0\b0\fs24 \cf0 \CocoaLigature1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0 \
+# Hard-code the API key directly\
+api_key = "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"\
+client = OpenAI(api_key=api_key)\
+\
+# Email configuration\
+EMAIL_ADDRESS = "giorgiocorrado@gmail.com"\
+EMAIL_PASSWORD = "tqja kiap oepl enyi"\
+EMAIL_RECIPIENT = "giorgiocorrado@gmail.com"\
+\
+def classify_response(response):\
+    prompt = f"The following is a response from a fire monitoring system. Does it indicate the presence of fire at that point in time, flames, burning, smoke, sparks, conflagration or ignition? Respond with 'yes' or 'no' only:\\n\\n\\"\{response\}\\"" # Craft prompt to detect fire\
+    PROMPT_MESSAGES = [\
+        \{"role": "system", "content": "You are a fire detection classifier only 'yes' or 'no' as responses nothing else. always lower capital letter no matter what"\},\
+        \{"role": "user", "content": prompt\}\
+    ]\
+    params = \{\
+        "model": "gpt-4o",\
+        "messages": PROMPT_MESSAGES,\
+        "max_tokens": 50,\
+    \}\
+\
+    # Send request to GPT\
+    result = client.chat.completions.create(**params)\
+    description = result.choices[0].message.content.strip().lower()\
+    print(f"Description: \{description\}")\
+    return description == "yes"\
+\
+def send_email(subject, body, attachment_path):\
+    msg = MIMEMultipart()\
+    msg['From'] = EMAIL_ADDRESS\
+    msg['To'] = EMAIL_RECIPIENT\
+    msg['Subject'] = subject\
+\
+    msg.attach(MIMEText(body, 'plain'))\
+\
+    attachment = open(attachment_path, "rb")\
+    part = MIMEBase('application', 'octet-stream')\
+    part.set_payload(attachment.read())\
+    encoders.encode_base64(part)\
+    part.add_header('Content-Disposition', f"attachment; filename= \{os.path.basename(attachment_path)\}")\
+\
+    msg.attach(part)\
+    attachment.close()\
+\
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:\
+        server.starttls()\
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)\
+        text = msg.as_string()\
+        server.sendmail(EMAIL_ADDRESS, EMAIL_RECIPIENT, text)\
+\
+def activate_action_if_fire(response, frame, description):\
+    if classify_response(response):\
+        print("Action Activated: Fire detected!")\
+        
+\f2\fs22 \cf3 \CocoaLigature0 print(
+\f1\b \cf5 "Turning on the LED for 5 seconds."
+\f2\b0 \cf3 )\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+    lgpio.gpio_write(h, LED_PIN, 1) 
+\f1\b \cf4  # Turn on the LED
+\f2\b0 \cf3 \
+    lgpio.gpio_write(h, R_PIN, 1) 
+\f1\b \cf4  # Turn on the LED
+\f2\b0 \cf3 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \CocoaLigature1 \
+\
+        # Save the frame\
+        timestamp = int(time.time())\
+        frame_filename = f"frame_\{timestamp\}.jpg"\
+        cv2.imwrite(frame_filename, frame)\
+\
+        # Save the description and alert\
+        alert_info = f"Description: \{description\}\\nAlert: Fire detected!"\
+\
+        # Send an email with the info\
+        send_email("Fire Alert", alert_info, frame_filename)\
+    else:\
+        print("No fire detected. No action taken.")\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f2\fs22 \cf3 \CocoaLigature0     lgpio.gpio_write(h, LED_PIN, 0) 
+\f1\b \cf4  # Turn off the LED
+\f2\b0 \cf3 \
+    lgpio.gpio_write(h, R_PIN, 0) 
+\f1\b \cf4  # Turn off the LED
+\f0\b0\fs24 \cf0 \CocoaLigature1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0 \
+# Open the default camera\
+video = cv2.VideoCapture(0)\
+\
+if not video.isOpened():\
+    print("Error: Could not open video.")\
+    exit()\
+\
+while True:\
+    success, frame = video.read()\
+    if not success:\
+        print("Error: Could not read frame.")\
+        break\
+\
+    _, buffer = cv2.imencode(".jpg", frame)\
+    base64_frame = base64.b64encode(buffer).decode("utf-8")\
+\
+    # Craft prompt to detect fire\
+    PROMPT_MESSAGES = [\
+        \{\
+            "role": "user",\
+            "content": [\
+                "You are a surveillance system. Your job is to prevent fire. Is there any fire, smoke, or other things that can initiate fire, in this frame from a live camera feed? If yes, where is it located? give a description of what you see specifically if there is fire or smoke and tell me where. Limit your answer to 50 words and prioritize fire or smoke if detected.",\
+                \{"image": base64_frame, "resize": 768\},\
+            ],\
+        \},\
+    ]\
+    params = \{\
+        "model": "gpt-4o",\
+        "messages": PROMPT_MESSAGES,\
+        "max_tokens": 50,\
+    \}\
+\
+    # Send request to GPT\
+    result = client.chat.completions.create(**params)\
+    description = result.choices[0].message.content\
+    print(f"Description: \{description\}")\
+\
+    # Use the description to activate the action if needed\
+    activate_action_if_fire(description, frame, description)\
+\
+    # Exit when 'q' key is pressed\
+    if cv2.waitKey(1) & 0xFF == ord('q'):\
+        break\
+\
+    # Wait a bit before capturing the next frame\
+    time.sleep(1)\
+\
+# Release the video capture object\
+video.release()\
+}
