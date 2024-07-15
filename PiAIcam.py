@@ -1,0 +1,87 @@
+import cv2
+import base64
+import time
+from openai import OpenAI
+import lgpio
+
+# Setup
+LED_PIN = 18  # GPIO 18 corresponds to physical pin 12
+CHIP_NUM = 4  # gpiochip4 from gpioinfo output
+h = lgpio.gpiochip_open(CHIP_NUM)  # Open the correct GPIO chip
+lgpio.gpio_claim_output(h, LED_PIN)  # Set the GPIO pin to output mode
+
+# Hard-code the API key directly
+api_key = "YOUR API KEY"
+client = OpenAI(api_key=api_key)
+
+def classify_response(response):
+    prompt = f"The following is a response from a fire monitoring system. Does it indicate the presence of fire at that point in time, flames, burning, smoke, sparks, conflagration or ignition? Respond with 'yes' or 'no' only:\n\n\"{response}\""
+    PROMPT_MESSAGES = [
+        {"role": "system", "content": "You are a fire prevention detection classifier only 'yes' or 'no' as responses nothing else. always lower capital letter no matter what"},
+        {"role": "user", "content": prompt}
+    ]
+    params = {
+        "model": "gpt-4o",
+        "messages": PROMPT_MESSAGES,
+        "max_tokens": 50,
+    }
+
+    # Send request to GPT
+    result = client.chat.completions.create(**params)
+    description = result.choices[0].message.content.strip().lower()
+    print(f"Description: {description}")
+    return description == "yes"
+
+def activate_action_if_fire(response):
+    if classify_response(response):
+        print("Action Activated: Fire detected!")
+        print("Turning on the LED for 5 seconds.")
+        lgpio.gpio_write(h, LED_PIN, 1)  # Turn on the LED
+    else:
+        print("No fire detected. No action taken.")
+        lgpio.gpio_write(h, LED_PIN, 0)  # Turn off the LED
+# Open the default camera
+video = cv2.VideoCapture(0)
+
+if not video.isOpened():
+    print("Error: Could not open video.")
+    exit()
+
+while True:
+    success, frame = video.read()
+    if not success:
+        print("Error: Could not read frame.")
+        break
+
+    _, buffer = cv2.imencode(".jpg", frame)
+    base64_frame = base64.b64encode(buffer).decode("utf-8")
+
+    # Craft prompt to detect fire
+    PROMPT_MESSAGES = [
+        {
+            "role": "user",
+            "content": [
+                "You are a surveillance system. Your job is to prevent catastrophic scenarios. Is there any fire, smoke, or other things that can initiate fire in this frame from a live camera feed? If yes, where is it located? If you see a hazard, give a description of what you see specifically if there is fire or smoke and tell me where. Limit your answer to 50 words and prioritize fire or smoke if detected.",
+                {"image": base64_frame, "resize": 768},
+            ],
+        },
+    ]
+    params = {
+        "model": "gpt-4o",
+        "messages": PROMPT_MESSAGES,
+        "max_tokens": 50,
+    }
+
+    # Send request to GPT
+    result = client.chat.completions.create(**params)
+    description = result.choices[0].message.content
+    print(f"Description: {description}")
+
+    # Use the description to activate the action if needed
+    activate_action_if_fire(description)
+
+    # Wait a bit before capturing the next frame
+    time.sleep(1)
+
+# Release the video capture object
+video.release()
