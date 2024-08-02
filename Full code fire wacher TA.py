@@ -15,7 +15,7 @@ client = OpenAI(api_key=api_key)
 
 # Email configuration
 EMAIL_ADDRESS = "giorgiocorrado@gmail.com"
-EMAIL_PASSWORD = "tqja kiap oepl enyi"
+EMAIL_PASSWORD = "YOUR PASSWORD"
 EMAIL_RECIPIENT = "giorgiocorrado@gmail.com"
 
 def classify_response(response):
